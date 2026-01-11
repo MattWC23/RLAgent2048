@@ -3,7 +3,7 @@ A instance of a 2048 game
 """
 import random
 class Game():
-    PROB_SPAWN_TWO = 0.8
+    PROB_SPAWN_TWO = 0.9
     def __init__(self, board=None):
         self.game_state = "ACTIVE"
         if board:
@@ -36,41 +36,50 @@ class Game():
 
         return
     
-
     def move(self, direction):
-        if direction not in ["UP", "DOWN", "LEFT", "RIGHT"]:
-            raise RuntimeError("Invalid direction")
-
         if self.game_state == "TERMINATED":
             return
-        board_original = [[tile for tile in row] for row in self.board]
-        if direction == "UP":
-            for j in range(4):
-                temp_row = [self.board[0][j], self.board[1][j], self.board[2][j], self.board[3][j]]
-                self._merge_row(temp_row)
-
-                for i in range(4):
-                    self.board[i][j] = temp_row[i]
-
-        if direction == "DOWN":
-            for j in range(4):
-                temp_row = [self.board[3][j], self.board[2][j], self.board[1][j], self.board[0][j]]
-                self._merge_row(temp_row)
-                for i in range(4):
-                    self.board[3 - i][j] = temp_row[i]
-        if direction == "LEFT":
-            for i in range(4):
-                self._merge_row(self.board[i])
-        
-        if direction == "RIGHT":
-            for i in range(4):
-                temp_row = self.board[i][::-1]
-                self._merge_row(temp_row)
-                self.board[i] = temp_row[::-1]
-        if board_original != self.board:
+        has_changed = self._move_board(self.board, direction)
+        if has_changed:
             self._spawntile()
         if self._game_over():
             self.game_state = "TERMINATED"
+    
+
+    def _move_board(self, board, direction):
+        if direction not in ["UP", "DOWN", "LEFT", "RIGHT"]:
+            raise RuntimeError("Invalid direction")
+
+        board_original = [[tile for tile in row] for row in board]
+        if direction == "UP":
+            for j in range(4):
+                temp_row = [board[0][j], board[1][j], board[2][j], board[3][j]]
+                self._merge_row(temp_row)
+
+                for i in range(4):
+                    board[i][j] = temp_row[i]
+
+        elif direction == "DOWN":
+            for j in range(4):
+                temp_row = [board[3][j], board[2][j], board[1][j], board[0][j]]
+                self._merge_row(temp_row)
+                for i in range(4):
+                    board[3 - i][j] = temp_row[i]
+
+        elif direction == "LEFT":
+            for i in range(4):
+                self._merge_row(board[i])
+        
+        else:
+            for i in range(4):
+                temp_row = board[i][::-1]
+                self._merge_row(temp_row)
+                board[i] = temp_row[::-1]
+
+        if board_original != board:
+            self._spawntile()
+        
+        return board_original != board
     
     def _merge_row(self, row):
         """
@@ -101,6 +110,13 @@ class Game():
     def __str__(self):
         return str(self.board[0]) + '\n' + str(self.board[1]) + '\n' + str(self.board[2]) + '\n' + str(self.board[3])
         
-        
+    def can_move(self, direction):
+        if direction not in ["UP", "DOWN", "RIGHT", "LEFT"]:
+            raise RuntimeError("Invalid Direction") 
+
+        board_copy = [[tile for tile in row] for row in self.board]
+        has_changed = self._move_board(board_copy, direction)
+        return has_changed
+
             
         
