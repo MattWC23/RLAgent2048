@@ -2,6 +2,23 @@
 A instance of a 2048 game
 """
 import random
+
+
+def game_over(board):
+        """
+        Returns if it is possible to make a legal move on the game board
+        """
+        dirs = [(1, 0), (0,1), (-1, 0), (0, -1)]
+        for i in range(4):
+            for j in range(4):
+                if board[i][j] == 0:
+                    return False
+                for dx,dy in dirs:
+                    if 0 <= i + dx < 4 and 0 <= j + dy < 4:
+                        if board[i][j] == board[i + dx][j + dy]:
+                            return False
+        
+        return True
 class Game():
     PROB_SPAWN_TWO = 0.9
     def __init__(self, board=None):
@@ -11,7 +28,7 @@ class Game():
                 raise RuntimeError("Board must always be 4x4 grid")
             
             self.board = [[tile for tile in row] for row in board]
-            if self._game_over():
+            if game_over(self.board):
                 self.game_state = "TERMINATED"
         else:
             self.board = [[0] * 4 for _ in range(4)]
@@ -37,24 +54,35 @@ class Game():
         return
     
     def move(self, direction):
+        """
+        Moves the game board in desired direction, updates if game is active or terminated, and spawns
+        in a new tile if possible. Returns the merged score gained by performing the move
+        """
         if self.game_state == "TERMINATED":
-            return
-        has_changed = self._move_board(self.board, direction)
+            return 0
+        has_changed, total_reward = self._move_board(self.board, direction)
         if has_changed:
             self._spawntile()
-        if self._game_over():
+        if game_over(self.board):
             self.game_state = "TERMINATED"
+        
+        return total_reward
     
 
     def _move_board(self, board, direction):
+        """"
+        Moves a board in direction
+        Returns (hasChanged, totalReward)
+        """
         if direction not in ["UP", "DOWN", "LEFT", "RIGHT"]:
             raise RuntimeError("Invalid direction")
-
+        
+        total_gains = 0
         board_original = [[tile for tile in row] for row in board]
         if direction == "UP":
             for j in range(4):
                 temp_row = [board[0][j], board[1][j], board[2][j], board[3][j]]
-                self._merge_row(temp_row)
+                total_gains += self._merge_row(temp_row)
 
                 for i in range(4):
                     board[i][j] = temp_row[i]
@@ -62,37 +90,38 @@ class Game():
         elif direction == "DOWN":
             for j in range(4):
                 temp_row = [board[3][j], board[2][j], board[1][j], board[0][j]]
-                self._merge_row(temp_row)
+                total_gains += self._merge_row(temp_row)
                 for i in range(4):
                     board[3 - i][j] = temp_row[i]
 
         elif direction == "LEFT":
             for i in range(4):
-                self._merge_row(board[i])
+                total_gains += self._merge_row(board[i])
         
         else:
             for i in range(4):
                 temp_row = board[i][::-1]
-                self._merge_row(temp_row)
+                total_gains += self._merge_row(temp_row)
                 board[i] = temp_row[::-1]
-
-        if board_original != board:
-            self._spawntile()
         
-        return board_original != board
+        return (board_original != board, total_gains)
     
     def _merge_row(self, row):
         """
         Merges a row vector as if hitting LEFT in the game
         Requires: row length 4
+        Returns the value of tiles merged
         """
+        value = 0
         self._move_zeros(row)
         for i in range(3):
             if row[i] == row[i + 1]:
                 row[i] *= 2
+                value += row[i]
                 row[i + 1] = 0
         
         self._move_zeros(row)
+        return value
     
 
     def _move_zeros(self, row):
@@ -104,8 +133,13 @@ class Game():
                     row[curr] = temp
                     lastnonzero += 1
 
-    def _game_over(self):
-        return False
+    
+    
+    def isTerminated(self):
+        """
+        Returns if the state of the game is terminated
+        """
+        return self.game_state == "TERMINATED"
 
     def __str__(self):
         return str(self.board[0]) + '\n' + str(self.board[1]) + '\n' + str(self.board[2]) + '\n' + str(self.board[3])
@@ -117,6 +151,9 @@ class Game():
         board_copy = [[tile for tile in row] for row in self.board]
         has_changed = self._move_board(board_copy, direction)
         return has_changed
+    
+    def key(self):
+        return tuple(tuple(row) for row in self.board)
 
-            
-        
+    def clone(self):
+        return Game(self.board)
