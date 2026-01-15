@@ -30,20 +30,24 @@ class StateNode:
     def remove_move(self, move):
         if move in self.untried:
             self.untried.remove(move)
+
+    def pick_untried(self):
+        a = random.choice(self.untried)
+        self.untried.remove(a)
+        return a
     
     def uct_action(self, C=1.2):
         """
         Computes the UCT of its children: value/visits + C * sqrt(log(parent_visits) / child_visits)
         in ordre to pick the best action to take in {UP, DOWN, LEFT, RIGHT}
-        Requires that edge statistics are up to date in order to return an accurate computation
+        Requires that edge statistics are up to date in order to return an accurate computation. Requires no 
+        untried actinos
         """
-        for a in self.untried:
-            return a
         best_action = None
         best_UCT = float('-inf')
         for action, edge in self.edges.items():
             if edge.visits == 0:
-                return action
+                raise RuntimeError('This should never happen')
             uct = edge.action_value() + C * math.sqrt(math.log(self.visit_count) / edge.visits)
             if  uct > best_UCT:
                 best_action = action
@@ -88,63 +92,54 @@ class MCTS():
         """
         for _ in range(self.ROLL_OUTS + len(self.root.untried)): #total simulations plus expanding the tree
             path = [(None, self.game.key(), 0)]
-            curr_key = self.root.key()
-            while curr_key in self.nodes:
+            curr_key = self.root.key
+            expanded = False
+            while curr_key in self.nodes and not expanded:
                 curr_node = self.nodes[curr_key]
-                move = curr_node.uct_action()
+                move = None
+                if curr_node.untried:
+                    move = curr_node.pick_untried()
+                    expanded = True
+                else:
+                    move = curr_node.uct_action()
                 move_reward = self.game.move(move)
                 new_board_key = self.game.key()
-                curr_node.remove_move(move)
                 path.append((move, new_board_key, move_reward))
                 curr_key = new_board_key
             
-            parent = self.nodes[path[-1][1]]
+            parent = self.nodes[path[-2][1]]
             parent.add_child(move, new_board_key)
             self.nodes[new_board_key] = StateNode(new_board_key, self._possible_moves(self.game), visit_count=1)
-            parent.edges[move].total_value += move_reward
-            parent.edges[move].visits += 1
-            path = self.play_random(self.game, path, self.SIMS)
-            self.back_prop(path)
+            rollout_reward = self.play_random(self.game, self.SIMS)
+            self.back_prop(path, rollout_reward)
             self._reset()
 
     
-    def play_random(self, game : Game, path, num_iter : int):
+    def play_random(self, game : Game, num_iter : int):
         """
-        Plays a random policy for `num_iter` moves on the gmae
-        Input:
-        -- path: a path of nodes already traversed before random play
-
-        Returns: a list path of board_keys corresponding to nodes in self.nodes
-        in the order they were traversed.  Eeach item in the path is (direction of indegree edge, node state, value of moving).
-        An example path is [(None, s1, 0), ('RIGHT', s2, 3.2), ...., ('UP', sn, 34)]
+        Plays a random policy for `num_iter` moves on the game and returns the reward accumulated.
         """
         for _ in range(num_iter):
+            rollout_reward = 0
             playable_moves = [move for move in ['UP', 'DOWN', 'LEFT', 'RIGHT'] if game.can_move(move)]
             idx = random.randint(0, len(playable_moves) - 1)
             move = playable_moves[idx]
-            move_reward = game.move(move)
-            new_board_key = game.key()
-            self.nodes[path[-1][1]].add_child(move, new_board_key)
-            if new_board_key in self.nodes:
-                self.nodes[new_board_key].visit_count += 1
-            else:
-                self.nodes[new_board_key] = StateNode(new_board_key, self._possible_moves(game), visit_count=1)
-            self.nodes[path[-1][1]].edges[move].total_value += move_reward
-            self.nodes[path[-1][1]].edges[move].visits += 1
-            path.append((move,new_board_key, move_reward))
+            rollout_reward += game.move(move)
             if game.isTerminated():
                 break
         
-        return path
+        return rollout_reward
     
 
-    def back_prop(self, path):
+    def back_prop(self, path, rollout_reward):
         n = len(path)
+        G = rollout_reward
         for i in range(n - 1, 0, -1):
             move, _, reward = path[i]
+            G += reward
             parent = path[i - 1][1]
             edge = self.nodes[parent].edges[move]
-            edge.total_value += reward
+            edge.total_value += G
             edge.visits += 1
             self.nodes[parent].visit_count += 1
 
