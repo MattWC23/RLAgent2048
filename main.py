@@ -1,5 +1,5 @@
-from game import Game
-from montecarlo import MCTS
+from src.game import Game
+from src.montecarlo import MCTS
 
 def main():
     board = Game()
@@ -11,12 +11,13 @@ def main():
     #     board.move(move)
     #     print(f"----------{move}---------")
     #     print(board)
-    for _ in range(100):
-        search_tree = MCTS(board)
+    while not board.isTerminated():
+        search_tree = MCTS(board, 200)
         move = search_tree.next_move()
         board.move(move)
         print(f"----------{move}---------")
         print(board)
+        print(f'final score:{board.score}')
 
 
 if __name__ == "__main__":
