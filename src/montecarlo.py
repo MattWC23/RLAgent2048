@@ -4,7 +4,12 @@ from typing import Dict, Set
 import random
 import math
 
-
+def sum_board(board):
+        output = 0
+        for row in board:
+            output += sum(row)
+        
+        return output
 class EdgeStats:
     def __init__(self):
         self.visits: int = 0
@@ -67,11 +72,12 @@ class MCTS():
         Receives a 2048 game in its current state to perform Monte Carlo Tree Search On
         """
         self.game = game.clone()
-        self.SIMS = 10000 #allows up to  10,000 moves before ending a simulation
+        self.SIMS = 80 #allows up to  10,000 moves before ending a simulation
         self.ROLL_OUTS = 500 #the number of simulations performed
         self.root = StateNode(self.game.key(), untried=self._possible_moves(self.game))
         self.nodes = {self.game.key() : self.root}
         self.C = C
+        self.max_depth = 1
 
     def next_move(self):
         """
@@ -84,6 +90,12 @@ class MCTS():
                 optimal_score = edge.visits
                 optimal_action = action
         return optimal_action
+        # optimal_action, optimal_score = '', -1
+        # for action, edge in self.root.edges.items():
+        #     if edge.action_value() > optimal_score:
+        #         optimal_score = edge.action_value()
+        #         optimal_action = action
+        # return optimal_action
 
 
     def _compute_mcst(self):
@@ -104,6 +116,8 @@ class MCTS():
                 else:
                     move = curr_node.uct_action(C=self.C)
                 move_reward = self.game.move(move)
+                # self.game.move(move)
+                # move_reward = self.game.reward(sum_board)
                 new_board_key = self.game.key()
                 path.append((move, new_board_key, move_reward))
                 curr_key = new_board_key
@@ -113,7 +127,10 @@ class MCTS():
             self.nodes[new_board_key] = StateNode(new_board_key, self._possible_moves(self.game), visit_count=1)
             rollout_reward = self.play_random(self.game, self.SIMS)
             self.back_prop(path, rollout_reward)
+            self.max_depth = max(self.max_depth, len(path))
             self._reset()
+            #print(f'max depth in tree:{self.max_depth}')
+            #print(f'depth selected: {len(path) - 1}')
 
     
     def play_random(self, game : Game, num_iter : int):
@@ -125,7 +142,9 @@ class MCTS():
             playable_moves = [move for move in ['UP', 'DOWN', 'LEFT', 'RIGHT'] if game.can_move(move)]
             idx = random.randint(0, len(playable_moves) - 1)
             move = playable_moves[idx]
+            # game.move(move)
             rollout_reward += game.move(move)
+            #rollout_reward += self.game.reward(sum_board)
             if game.isTerminated():
                 break
         
@@ -172,3 +191,52 @@ class MCTS():
             path = self.play_random(self.game, self.SIMS)
             self.back_prop(path)
             self._reset()
+
+    def __str__(self):
+        """
+        Pretty-print the MCTS from the root up to depth `d`.
+        Set `self.print_depth` before calling str(mcts), or it defaults to self.max_depth.
+        """
+        #d = getattr(self, "print_depth", None)
+        # if d is None:
+        #     d = getattr(self, "max_depth", 1)
+
+        d = 20
+
+        lines = []
+        visited = set()
+
+        def edge_summary(node, action):
+            e = node.edges[action]
+            if getattr(e, "visits", 0) == 0:
+                return "v=0, Q=NA"
+            q = e.action_value()  # assumes EdgeStats.action_value() exists
+            return f"v={e.visits}, Q={q:.3f}, tot={e.total_value:.1f}"
+
+        def dfs(node_key, depth, prefix=""):
+            node = self.nodes.get(node_key)
+            if node is None:
+                lines.append(prefix + f"[missing node] {node_key}")
+                return
+            if node_key in visited:
+                lines.append(prefix + f"[cycle/seen] visits={node.visit_count} key={node_key}")
+                return
+            visited.add(node_key)
+
+            lines.append(prefix + f"Node visits={node.visit_count} untried={list(node.untried)} key={node.key}")
+
+            if depth >= d:
+                return
+
+            # deterministic action order
+            for action in ["UP", "DOWN", "LEFT", "RIGHT"]:
+                child_keys = sorted(list(node.children.get(action, set())))
+                lines.append(prefix + f"  ├─ {action}: {edge_summary(node, action)}  children={len(child_keys)}")
+                for ck in child_keys:
+                    dfs(ck, depth + 1, prefix + "  │   ")
+
+        dfs(self.root.key, depth=0, prefix="")
+        return "\n".join(lines)
+    
+
+   

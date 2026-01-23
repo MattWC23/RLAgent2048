@@ -159,3 +159,10 @@ class Game():
 
     def clone(self):
         return Game(self.board)
+    
+    def reward(self, fn):
+        """
+        Accepts a fn: board --> float
+        that can compute a reward for a board in its given state
+        """
+        return fn(self.board)

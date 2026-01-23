@@ -12,13 +12,14 @@ def main():
     #     print(f"----------{move}---------")
     #     print(board)
     while not board.isTerminated():
-        search_tree = MCTS(board, 200)
+        search_tree = MCTS(board, 50)
         move = search_tree.next_move()
         board.move(move)
         print(f"----------{move}---------")
         print(board)
-        print(f'final score:{board.score}')
+        print(f'score:{board.score}')
 
+    
 
 if __name__ == "__main__":
     main()
