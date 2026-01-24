@@ -2,6 +2,7 @@ from src.game import Game
 from src.montecarlo import MCTS
 
 def main():
+    #test = [[8, 512, 2, 0], [2, 128, 8, 0], [64, 32, 16, 4], [8, 256, 2, 0]]
     board = Game()
     # moves = ["LEFT", "UP", "RIGHT", "DOWN", "LEFT", "UP"]
     print("-------STARTING BOARD-------")

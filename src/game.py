@@ -151,7 +151,7 @@ class Game():
             raise RuntimeError("Invalid Direction") 
 
         board_copy = [[tile for tile in row] for row in self.board]
-        has_changed = self._move_board(board_copy, direction)
+        has_changed, _ = self._move_board(board_copy, direction)
         return has_changed
     
     def key(self):
